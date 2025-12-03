@@ -1,12 +1,13 @@
+Below is a complete, copy-paste-ready HTML file that should display a candlestick chart for the last year for a stock symbol. It includes all required libraries and fixes for the time axis:
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Amazing Stock Tracker</title>
+  <title>Amazing Stock Tracker - Candlesticks</title>
   <style>
     body {
-      background: linear-gradient(110deg, #141e30 0%, #243b55 100%);
+      background: #141e30;
       margin: 0;
       font-family: 'Segoe UI', Arial, sans-serif;
       color: #fff;
@@ -21,7 +22,7 @@
       padding: 40px 30px;
       border-radius: 20px;
       box-shadow: 0 6px 32px rgba(0,0,0,0.6);
-      width: 350px;
+      width: 380px;
       text-align: center;
     }
     input {
@@ -43,124 +44,31 @@
       transition: transform 0.1s;
     }
     button:hover { transform: scale(1.08); }
-    .favorite {
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      font-size: 1.3rem;
-      color: #ffec3d;
-      vertical-align: middle;
-      margin-left: 6px;
-    }
-    .result {
-      margin-top: 24px;
-      font-size: 1.22rem;
-    }
-    .change {
-      font-weight: bold;
-    }
-    .up {
-      color: #39ff14;
-    }
-    .down {
-      color: #ff2d55;
-    }
-    .favorites-list {
-      margin-bottom: 15px;
-    }
     #candlestick {
+      margin-top: 20px;
       background: #181e2e;
       border-radius: 8px;
-      margin-top: 16px;
     }
   </style>
+  <!-- Chart.js core -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Chart.js plugin for financial charts -->
   <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
+  <!-- Chart.js time adapter -->
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
 </head>
 <body>
   <div class="tracker">
     <h2>🚀 Finnhub Stock Tracker</h2>
-    <div class="favorites-list" id="favorites"></div>
     <input id="symbol" type="text" placeholder="Enter symbol e.g. AAPL">
     <button onclick="trackStock()">Track</button>
-    <div id="output" class="result"></div>
-    <canvas id="candlestick" width="330" height="200"></canvas>
+    <canvas id="candlestick" width="340" height="250"></canvas>
   </div>
   <script>
     const key = 'd3k2oqpr01qtciv16j4gd3k2oqpr01qtciv16j50';
-    let intervalId = null;
-    let currentSymbol = '';
     let chart = null;
-
-    function updateFavoritesUI() {
-      const favoritesDiv = document.getElementById('favorites');
-      const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-      favoritesDiv.innerHTML = '';
-      if (favorites.length > 0) {
-        favorites.forEach(sym => {
-          const symBtn = document.createElement('button');
-          symBtn.textContent = sym;
-          symBtn.style.marginRight = '7px';
-          symBtn.onclick = () => trackStock(sym);
-          favoritesDiv.appendChild(symBtn);
-        });
-      } else {
-        favoritesDiv.textContent = 'No favorites yet.';
-      }
-    }
-
-    function addFavorite(symbol) {
-      const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-      if (!favorites.includes(symbol)) {
-        favorites.push(symbol);
-        localStorage.setItem('favorites', JSON.stringify(favorites));
-        updateFavoritesUI();
-      }
-    }
-
-    function trackStock(forceSymbol) {
-      const symbol = (forceSymbol || document.getElementById('symbol').value.trim().toUpperCase());
-      if (!symbol) {
-        document.getElementById('output').innerHTML = '<span>Please enter a stock symbol.</span>';
-        return;
-      }
-      document.getElementById('symbol').value = symbol;
-      currentSymbol = symbol;
-      fetchAll(symbol);
-      clearInterval(intervalId);
-      intervalId = setInterval(() => fetchAll(symbol), 5000);
-    }
-
-    async function fetchAll(symbol) {
-      fetchStock(symbol);
-      showCandlestick(symbol);
-    }
-    
-    async function fetchStock(symbol) {
-      document.getElementById('output').innerHTML = 'Loading...';
-      try {
-        const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`);
-        if (!res.ok) throw new Error('Bad response');
-        const data = await res.json();
-        if (!data.c) {
-          document.getElementById('output').innerHTML = '<span>Stock not found.</span>';
-          if (chart) chart.destroy();
-          return;
-        }
-        const change = data.c - data.pc;
-        const changeClass = change >= 0 ? 'up' : 'down';
-        const heart = `<button class="favorite" onclick="addFavorite('${symbol}')">&#10084;</button>`;
-        document.getElementById('output').innerHTML = `
-          <div><b>${symbol}</b> ${heart}</div>
-          <div>Current: <span class="change ${changeClass}">$${data.c.toFixed(2)}</span></div>
-          <div>Prev Close: $${data.pc.toFixed(2)}</div>
-          <div>Change: <span class="${changeClass}">${change >= 0 ? '+' : ''}${change.toFixed(2)}</span></div>
-        `;
-      } catch (err) {
-        document.getElementById('output').innerHTML = '<span>Error fetching stock data.</span>';
-        if (chart) chart.destroy();
-      }
-    }
+    let intervalId = null;
 
     async function showCandlestick(symbol) {
       const now = Math.floor(Date.now() / 1000);
@@ -168,51 +76,52 @@
       const url = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${oneYearAgo}&to=${now}&token=${key}`;
       const resp = await fetch(url);
       const data = await resp.json();
+      const ctx = document.getElementById('candlestick').getContext('2d');
       if (data.s !== 'ok' || !data.o || data.o.length === 0) {
-        document.getElementById('candlestick').style.display = 'none';
+        ctx.clearRect(0, 0, 340, 250);
         return;
       }
-      document.getElementById('candlestick').style.display = 'block';
       const chartData = data.t.map((t, i) => ({
-        x: new Date(t * 1000),
+        x: t * 1000,
         o: data.o[i],
         h: data.h[i],
         l: data.l[i],
         c: data.c[i],
       }));
       if (chart) chart.destroy();
-      const ctx = document.getElementById('candlestick').getContext('2d');
       chart = new Chart(ctx, {
         type: 'candlestick',
         data: {
           datasets: [{
             label: `${symbol} - Last Year`,
             data: chartData,
-            color: { up: '#26ff5e', down: '#ff234a', unchanged: '#888'},
-            borderColor: 'rgba(255, 255, 255, 0.7)',
+            borderColor: '#26ff5e',
           }]
         },
         options: {
           responsive: false,
-          plugins: {
-            legend: {
-              display: false
-            }
-          },
+          plugins: { legend: { display: false } },
           scales: {
-            x: { type: 'time', time: { unit: 'month' }, grid: { color: '#444'} },
-            y: { grid: { color: '#444'} }
+            x: {
+              type: 'time',
+              time: {
+                unit: 'month'
+              },
+              grid: { color: '#444' }
+            },
+            y: { grid: { color: '#444' } }
           }
         }
       });
     }
 
-    // Initialize UI
-    updateFavoritesUI();
+    function trackStock() {
+      const symbol = document.getElementById('symbol').value.trim().toUpperCase();
+      if (!symbol) return;
+      showCandlestick(symbol);
+      if (intervalId) clearInterval(intervalId);
+      intervalId = setInterval(() => showCandlestick(symbol), 5000);
+    }
   </script>
 </body>
 </html>
-
-
-
-
