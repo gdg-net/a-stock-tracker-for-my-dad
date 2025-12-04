@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title> Stock Tracker</title>
+  <style>
+    body {
+      background: #141e30;
+      margin: 0;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      justify-content: center;
+    }
+    .tracker {
+      background: rgba(0,0,0,0.7);
+      padding: 40px 30px;
+      border-radius: 20px;
+      box-shadow: 0 6px 32px rgba(0,0,0,0.6);
+      width: 380px;
+      text-align: center;
+    }
+    input {
+      width: 180px;
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: none;
+      margin-right: 8px;
+      font-size: 1rem;
+    }
+    button {
+      background: linear-gradient(100deg, #00c6ff 0%, #0072ff 100%);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 8px 20px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    button:hover { transform: scale(1.08); }
+    .favorites-section {
+      margin-top: 20px;
+      text-align: left;
+    }
+    .favorite-stock {
+      display: flex;
+      align-items: center;
+      margin: 8px 0;
+      font-size: 1.05rem;
+      background: #2c3547;
+      border-radius: 10px;
+      padding: 8px 14px;
+    }
+    .heart {
+      cursor: pointer;
+      font-size: 1.4rem;
+      color: #ff6384;
+      margin-right: 10px;
+      transition: transform 0.1s;
+    }
+    .heart.filled { color: #ff6384; }
+    .heart.empty { color: #cccccc; }
+    .stock-info {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="tracker">
+    <h2> Stock Tracker</h2>
+    <input id="symbol" type="text" placeholder="Enter symbol e.g. AAPL">
+    <button onclick="trackStock()">Track</button>
+    <div id="stock-display" style="margin:16px 0;"></div>
+    <div class="favorites-section">
+      <h3>Favorites</h3>
+      <div id="favorites-list"></div>
+    </div>
+  </div>
+<script>
+const key = 'd3k2oqpr01qtciv16j4gd3k2oqpr01qtciv16j50';
+
+function getFavorites() {
+  return JSON.parse(localStorage.getItem('favorites')) || [];
+}
+
+function setFavorites(favs) {
+  localStorage.setItem('favorites', JSON.stringify(favs));
+}
+
+function isFavorite(symbol) {
+  return getFavorites().includes(symbol);
+}
+
+function toggleFavorite(symbol) {
+  let favs = getFavorites();
+  if (favs.includes(symbol)) {
+    favs = favs.filter(f => f !== symbol);
+  } else {
+    favs.push(symbol);
+  }
+  setFavorites(favs);
+  renderFavorites();
+  if(document.getElementById('stock-symbol'))
+    renderStockInfo(localStorage.getItem('lastViewedSymbol'));
+}
+
+async function fetchQuote(symbol) {
+  const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`;
+  const resp = await fetch(url);
+  return await resp.json();
+}
+
+function renderStockInfo(symbol) {
+  if (!symbol) {
+    document.getElementById('stock-display').innerHTML = '';
+    localStorage.removeItem('lastViewedSymbol');
+    return;
+  }
+  localStorage.setItem('lastViewedSymbol', symbol);
+  fetchQuote(symbol).then(data => {
+    if (!data || data.c === 0 || data.c == null) {
+      document.getElementById('stock-display').innerHTML = `<span style="color: #fa6469;">Symbol not found</span>`;
+      return;
+    }
+    const fav = isFavorite(symbol);
+    document.getElementById('stock-display').innerHTML = `
+      <div class="favorite-stock">
+        <span class="heart ${fav ? 'filled' : 'empty'}" onclick="toggleFavorite('${symbol}')">${fav ? '♥' : '♡'}</span>
+        <div class="stock-info">
+          <strong id="stock-symbol">${symbol.toUpperCase()}</strong>
+          &nbsp; | Price: $${data.c.toFixed(2)}
+        </div>
+      </div>
+    `;
+  })
+}
+
+function renderFavorites() {
+  const favs = getFavorites();
+  const list = document.getElementById('favorites-list');
+  list.innerHTML = '';
+  if (favs.length === 0) {
+    list.innerHTML = '<span style="color:#ccc">(No favorites yet)</span>';
+    return;
+  }
+  favs.forEach(symbol => {
+    fetchQuote(symbol).then(data => {
+      if (!data || data.c === 0 || data.c == null) return; // Skip if not found
+      const favNode = document.createElement('div');
+      favNode.className = 'favorite-stock';
+      favNode.innerHTML = `
+        <span class="heart filled" onclick="toggleFavorite('${symbol}')">♥</span>
+        <div class="stock-info" onclick="renderStockInfo('${symbol}')" style="cursor:pointer;">${symbol.toUpperCase()} | $${data.c.toFixed(2)}</div>
+      `;
+      list.appendChild(favNode);
+    });
+  });
+}
+
+function trackStock() {
+  const symbol = document.getElementById('symbol').value.trim().toUpperCase();
+  renderStockInfo(symbol);
+}
+
+// Initial render
+renderFavorites();
+const last = localStorage.getItem('lastViewedSymbol');
+if (last) renderStockInfo(last);
+</script>
+</body>
+</html>
+
+
